@@ -10,18 +10,17 @@ from typing import List, Optional
 from datetime import datetime
 import os
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except Exception:
-    # dotenv is optional in production environments
-    pass
 
-try:
-    from services.openrouter_service import OpenRouterService
-    _openrouter = OpenRouterService()
-except Exception:
-    _openrouter = None
+from dotenv import load_dotenv
+# Load .env from project root (parent directory)
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
+
+# try:
+from services.openrouter_service import OpenRouterService
+_openrouter = OpenRouterService()
+# except Exception:
+#     _openrouter = None
 
 try:
     from routes.auth import router as auth_router
@@ -32,6 +31,11 @@ try:
     from routes.user import router as user_router
 except Exception:
     user_router = None
+
+try:
+    from routes.email import router as email_router
+except Exception:
+    email_router = None
 
 app = FastAPI(
     title="Brody API",
@@ -55,6 +59,10 @@ if auth_router:
 # Include user routes if available  
 if user_router:
     app.include_router(user_router)
+
+# Include email routes if available
+if email_router:
+    app.include_router(email_router)
 
 # Data models
 class EmailMessage(BaseModel):
