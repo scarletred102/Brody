@@ -8,6 +8,30 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+import os
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    # dotenv is optional in production environments
+    pass
+
+try:
+    from services.openrouter_service import OpenRouterService
+    _openrouter = OpenRouterService()
+except Exception:
+    _openrouter = None
+
+try:
+    from routes.auth import router as auth_router
+except Exception:
+    auth_router = None
+
+try:
+    from routes.user import router as user_router
+except Exception:
+    user_router = None
 
 app = FastAPI(
     title="Brody API",
@@ -23,6 +47,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include authentication routes if available
+if auth_router:
+    app.include_router(auth_router)
+
+# Include user routes if available  
+if user_router:
+    app.include_router(user_router)
 
 # Data models
 class EmailMessage(BaseModel):
@@ -63,19 +95,44 @@ async def root():
 async def health_check():
     return {"status": "healthy"}
 
+# AI service status (validates Task 1.1 integration without changing behavior)
+@app.get("/ai/status")
+async def ai_status():
+    available = bool(_openrouter and _openrouter.available())
+    return {
+        "provider": "openrouter",
+        "available": available,
+        "default_model": os.getenv("DEFAULT_MODEL", "anthropic/claude-3.5-sonnet"),
+        "fallback_model": os.getenv("FALLBACK_MODEL", "openai/gpt-4o-mini"),
+        "only_free": os.getenv("ONLY_FREE_MODELS", "true"),
+        "free_allowlist": os.getenv("FREE_MODEL_ALLOWLIST", "meta-llama/llama-3.1-8b-instruct:free,mistralai/mistral-7b-instruct:free,nousresearch/nous-hermes-2-mistral-7b:free")
+    }
+
 # Email endpoints
 @app.post("/api/classify-email")
 async def classify_email(email: EmailMessage):
     """
     Classify email urgency and suggest actions
     """
-    # Simple rule-based classification (can be replaced with LLM)
+    # Prefer AI classification via OpenRouter if available
+    if _openrouter and _openrouter.available():
+        result = _openrouter.classify_email(email.subject, email.body, email.sender)
+        if result:
+            # Map AI output to existing response style while returning AI fields
+            urgency = result.get("urgency", "medium")
+            suggested_action = result.get("action", "fyi")
+            return {
+                "email_id": email.id,
+                "urgency": urgency,
+                "suggested_action": suggested_action,
+                "ai": result
+            }
+    # Fallback: simple rule-based classification
     urgency = "normal"
     if any(word in email.subject.lower() for word in ["urgent", "asap", "important"]):
         urgency = "high"
     elif any(word in email.subject.lower() for word in ["fyi", "optional"]):
         urgency = "low"
-    
     return {
         "email_id": email.id,
         "urgency": urgency,
@@ -87,6 +144,21 @@ async def suggest_task(email: EmailMessage):
     """
     Generate task suggestion from email
     """
+    # Prefer AI suggestions if available
+    if _openrouter and _openrouter.available():
+        suggestions = _openrouter.suggest_tasks(email.subject, email.body, email.sender)
+        if suggestions:
+            # Return the first suggestion as MVP behavior, include all as metadata
+            first = suggestions[0]
+            suggestion = TaskSuggestion(
+                id=f"task_{email.id}",
+                title=first.get("title", f"Follow up: {email.subject}"),
+                description=first.get("description", f"Review and respond to email from {email.sender}"),
+                priority=first.get("priority", "medium"),
+                source_email_id=email.id
+            )
+            return {"suggestion": suggestion, "ai": suggestions}
+    # Fallback mock suggestion
     suggestion = TaskSuggestion(
         id=f"task_{email.id}",
         title=f"Follow up: {email.subject}",
@@ -116,6 +188,26 @@ async def generate_meeting_brief(meeting_id: str):
     """
     Generate comprehensive meeting brief
     """
+    # If AI is available, generate a brief
+    if _openrouter and _openrouter.available():
+        content = _openrouter.meeting_brief(
+            title="Team Standup",
+            when_iso=datetime.now().isoformat(),
+            attendees=["you", "team"],
+            description="Daily sync meeting"
+        )
+        if content:
+            brief = MeetingBrief(
+                meeting_id=meeting_id,
+                title="Team Standup",
+                time=datetime.now(),
+                summary=content.split("\n\n")[0][:200],
+                key_points=["See AI brief content"],
+                action_items=["Prepare talking points"],
+                draft_agenda=content
+            )
+            return brief
+    # Fallback mock brief
     brief = MeetingBrief(
         meeting_id=meeting_id,
         title="Team Standup",
@@ -129,4 +221,4 @@ async def generate_meeting_brief(meeting_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=9000)
