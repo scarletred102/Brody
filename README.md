@@ -4,6 +4,8 @@
 
 Brody is a next-generation AI workspace that unifies email, files, and tasks into one intelligent control center. Unlike reactive assistants, Brody anticipates your needs, automates actions, and enables AI-to-AI collaboration—saving you 5–7 hours weekly.
 
+> **Current Status**: MVP in development - basic architecture and "Prepare My Day" feature implemented
+
 ---
 
 ## 🌟 Key Features
@@ -72,38 +74,115 @@ Brody is built on a multi-agent architecture where specialized AI agents collabo
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+ or Python 3.9+
-- API keys for integrations (Gmail, Outlook, etc.)
-- Modern web browser
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/scarletred102/Brody.git
-cd Brody
-
-# Install dependencies
-npm install
-# or
-pip install -r requirements.txt
-
-# Configure your environment
-cp .env.example .env
-# Edit .env with your API keys and preferences
-
-# Start Brody
-npm start
-# or
-python main.py
-```
+- Python 3.9+ (for backend)
+- Node.js 18+ (for frontend)
+- API keys for integrations (Gmail, Outlook, etc.) - optional for MVP
 
 ### Quick Start
 
-1. **Connect Your Accounts**: Link your email, calendar, and file storage
-2. **Set Preferences**: Configure what tasks you want Brody to automate
-3. **Let Brody Learn**: The AI agents will observe your patterns for a few days
-4. **Enjoy Automation**: Watch as Brody starts anticipating and handling tasks
+**Option 1: Run Backend Only**
+```bash
+cd backend
+pip install -r requirements.txt
+python main.py
+```
+Visit `http://localhost:8000` to see the API
+
+**Option 2: Run Full Stack**
+```bash
+# Terminal 1 - Backend
+cd backend
+pip install -r requirements.txt
+python main.py
+
+# Terminal 2 - Frontend
+cd frontend
+npm install
+npm start
+```
+Visit `http://localhost:3000` to see the web app
+
+### Detailed Setup
+
+See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for complete setup instructions and development workflow.
+
+### MVP Feature: "Prepare My Day"
+
+The core MVP feature is accessible at:
+- **API**: `GET http://localhost:8000/api/prepare-day`
+- **Web UI**: Click "Prepare My Day" button on the homepage
+
+---
+
+## 📖 Project Structure
+
+```
+Brody/
+├── backend/              # FastAPI backend server
+│   ├── main.py          # API endpoints and core logic
+│   └── requirements.txt # Python dependencies
+├── frontend/            # React web application
+│   ├── public/          # Static assets
+│   ├── src/             # React components
+│   └── package.json     # Node dependencies
+├── agents/              # Multi-agent architecture
+│   └── coordinator.py   # Agent orchestration logic
+├── Plans/               # Project proposals and documentation
+├── docs/                # Development guides
+│   └── DEVELOPMENT.md   # Developer setup guide
+└── README.md            # This file
+```
+
+## 📖 API Examples
+
+### Health Check
+```bash
+curl http://localhost:8000/health
+```
+
+### Prepare Your Day (Core MVP Feature)
+```bash
+curl http://localhost:8000/api/prepare-day
+```
+
+### Classify Email
+```bash
+curl -X POST http://localhost:8000/api/classify-email \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "email1",
+    "subject": "Urgent: Meeting tomorrow",
+    "body": "We need to discuss the project",
+    "sender": "boss@company.com",
+    "timestamp": "2025-10-11T10:00:00Z"
+  }'
+```
+
+---
+
+## 🎯 Current MVP Status
+
+### ✅ Completed
+- [x] Basic FastAPI backend with core endpoints
+- [x] Multi-agent architecture foundation
+- [x] React frontend with "Prepare My Day" UI
+- [x] Email classification logic
+- [x] Task suggestion system
+- [x] Meeting brief generation structure
+
+### 🚧 In Progress
+- [ ] Gmail API integration
+- [ ] Calendar synchronization
+- [ ] LLM integration (Gemini/OpenAI)
+- [ ] Proactive scanning loop
+- [ ] User authentication
+
+### 📅 Planned
+- [ ] Microsoft To Do integration
+- [ ] Advanced AI-to-AI agent collaboration
+- [ ] Gamification features
+- [ ] Mobile app
+- [ ] Enterprise features
 
 ---
 
