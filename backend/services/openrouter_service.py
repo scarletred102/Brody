@@ -1,6 +1,7 @@
 import os
 import json
 import importlib
+import logging
 from typing import List, Optional
 
 # Dynamically resolve OpenAI client to avoid static import errors if not installed yet
@@ -28,7 +29,16 @@ class OpenRouterService:
         self.client = None
         if OpenAI and self.api_key:
             try:
-                self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+                # Add recommended headers for OpenRouter
+                default_headers = {
+                    "HTTP-Referer": os.getenv("OPENROUTER_REFERRER", "http://localhost:9000"),
+                    "X-Title": os.getenv("OPENROUTER_TITLE", "Brody Dev"),
+                }
+                self.client = OpenAI(
+                    api_key=self.api_key,
+                    base_url=self.base_url,
+                    default_headers=default_headers,
+                )
             except Exception:
                 self.client = None
 
@@ -60,34 +70,90 @@ class OpenRouterService:
         return self.free_allowlist[0] if self.free_allowlist else None
 
     def _chat(self, messages: List[dict], model: Optional[str] = None, temperature: float = 0.2, max_tokens: int = 800) -> Optional[str]:
+        logger = logging.getLogger("openrouter")
         if not self.client:
+            logger.debug("OpenRouter client not initialized; skipping AI call")
             return None
-        try:
-            use_model = self._select_model(model)
-            if not use_model:
-                return None
+        def _messages_to_prompt(msgs: List[dict]) -> str:
+            parts = []
+            for m in msgs:
+                role = m.get("role", "user")
+                content = m.get("content", "")
+                parts.append(f"{role.upper()}: {content}")
+            return "\n\n".join(parts)
+
+        def _call(mdl: str) -> Optional[str]:
+            # First try chat.completions
             resp = self.client.chat.completions.create(
-                model=use_model,
+                model=mdl,
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
-            return resp.choices[0].message.content
-        except Exception:
-            # Try fallback model
             try:
-                fb_model = self._select_model(self.fallback_model)
-                if not fb_model:
-                    return None
-                resp = self.client.chat.completions.create(
-                    model=fb_model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                return resp.choices[0].message.content
+                content = resp.choices[0].message.content
             except Exception:
+                content = None
+            if content and isinstance(content, str) and content.strip():
+                return content
+            # Fallback to responses.create aggregation
+            try:
+                prompt = _messages_to_prompt(messages)
+                r2 = self.client.responses.create(model=mdl, input=prompt, max_output_tokens=max_tokens)
+                text = getattr(r2, "output_text", None)
+                if not text:
+                    # best-effort extraction
+                    out = []
+                    for item in getattr(r2, "output", []) or []:
+                        if getattr(item, "type", None) == "message":
+                            for c in getattr(getattr(item, "content", None), "__iter__", lambda: [])():
+                                t = getattr(c, "text", None)
+                                if t and getattr(t, "value", None):
+                                    out.append(t.value)
+                    text = "\n".join(out)
+                if text and text.strip():
+                    return text
+            except Exception:
+                pass
+            return None
+        # Primary model
+        try:
+            use_model = self._select_model(model)
+            if not use_model:
+                logger.warning("No allowed model available for request")
                 return None
+            out = _call(use_model)
+            if out:
+                return out
+            logger.info(f"Primary model '{use_model}' returned empty; trying fallback")
+        except Exception as e:
+            logger.warning(f"Primary model call failed: {e}")
+        # Fallback model
+        try:
+            fb_model = self._select_model(self.fallback_model)
+            if not fb_model:
+                logger.warning("No allowed fallback model available")
+                return None
+            out = _call(fb_model)
+            if out:
+                return out
+            logger.error("Fallback model also returned empty content")
+            # Try all allowed free models as a last resort
+            tried = set([use_model, fb_model]) if 'use_model' in locals() else set([fb_model])
+            for mdl in self.free_allowlist:
+                if mdl in tried:
+                    continue
+                try:
+                    out = _call(mdl)
+                    if out:
+                        logger.info(f"Succeeded with alternate model '{mdl}'")
+                        return out
+                except Exception as e:
+                    logger.debug(f"Alternate model '{mdl}' failed: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Fallback model call failed: {e}")
+            return None
 
     def classify_email(self, subject: str, body: str, sender: str) -> Optional[dict]:
         messages = [

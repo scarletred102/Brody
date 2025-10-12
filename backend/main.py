@@ -125,6 +125,17 @@ async def ai_status():
         "free_allowlist": os.getenv("FREE_MODEL_ALLOWLIST", "meta-llama/llama-3.1-8b-instruct:free,mistralai/mistral-7b-instruct:free,nousresearch/nous-hermes-2-mistral-7b:free")
     }
 
+@app.get("/ai/test")
+async def ai_test():
+    """Quick check that OpenRouter returns non-empty content."""
+    if not (_openrouter and _openrouter.available()):
+        return {"ok": False, "reason": "client-unavailable"}
+    out = _openrouter._chat([
+        {"role": "system", "content": "Return ONLY the word TEST"},
+        {"role": "user", "content": "Say TEST"},
+    ], model=os.getenv("DEFAULT_MODEL"))
+    return {"ok": bool(out and out.strip()), "content": (out or "")[:100]}
+
 # Email endpoints
 @app.post("/api/classify-email")
 async def classify_email(email: EmailMessage):
