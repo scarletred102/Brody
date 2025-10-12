@@ -158,6 +158,87 @@ curl -X POST http://localhost:8000/api/classify-email \
   }'
 ```
 
+### Email Integration (Task 1.3)
+
+New endpoints for IMAP and raw email parsing:
+
+- POST `/email/imap/test` — Test IMAP connection and list recent messages
+- POST `/email/fetch-and-classify` — Fetch recent emails and classify each (uses AI when available)
+- POST `/email/parse` — Parse a raw RFC822 email (accepts base64 or raw string)
+
+Examples
+
+1) Parse a raw email (base64):
+```bash
+curl -X POST http://localhost:8000/email/parse \
+  -H "Content-Type: application/json" \
+  -d '{
+    "raw": "<base64-of-rfc822>"
+  }'
+```
+
+2) Test IMAP (Gmail example — requires App Password):
+```bash
+curl -X POST http://localhost:8000/email/imap/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "host": "imap.gmail.com",
+    "username": "you@gmail.com",
+    "password": "<your-app-password>",
+    "port": 993,
+    "use_ssl": true,
+    "mailbox": "INBOX",
+    "limit": 5
+  }'
+```
+
+3) Fetch + classify recent emails:
+```bash
+curl -X POST http://localhost:8000/email/fetch-and-classify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "host": "imap.gmail.com",
+    "username": "you@gmail.com",
+    "password": "<your-app-password>",
+    "port": 993,
+    "use_ssl": true,
+    "mailbox": "INBOX",
+    "limit": 5
+  }'
+```
+
+Notes
+- Gmail requires enabling 2FA and creating an App Password for IMAP.
+- We prefer AI classification via OpenRouter when `OPENROUTER_API_KEY` is configured; otherwise a simple heuristic fallback is used.
+- HTML-only emails are converted to plain text for better classification.
+
+### Calendar Integration (Task 1.4)
+
+New endpoints for calendar and meeting briefs:
+
+- GET `/calendar/events` — Fetch upcoming events (mock for now)
+- POST `/calendar/meeting-brief` — Generate a brief for a given event
+
+Examples
+
+1) List events
+```bash
+curl http://localhost:8000/calendar/events
+```
+
+2) Generate meeting brief
+```bash
+curl -X POST http://localhost:8000/calendar/meeting-brief \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_id": "event1"
+  }'
+```
+
+Notes
+- Currently uses a mock calendar service. Google Calendar integration will require OAuth client credentials and user consent; we will document this when enabled.
+- If OpenRouter is configured, the meeting brief uses AI; otherwise, a fallback message is returned.
+
 ---
 
 ## 🎯 Current MVP Status

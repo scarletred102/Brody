@@ -33,6 +33,11 @@ except Exception:
     user_router = None
 
 try:
+    from routes.calendar import router as calendar_router
+except Exception:
+    calendar_router = None
+
+try:
     from routes.email import router as email_router
 except Exception:
     email_router = None
@@ -63,6 +68,10 @@ if user_router:
 # Include email routes if available
 if email_router:
     app.include_router(email_router)
+
+# Include calendar routes if available
+if calendar_router:
+    app.include_router(calendar_router)
 
 # Data models
 class EmailMessage(BaseModel):
