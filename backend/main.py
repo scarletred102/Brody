@@ -258,4 +258,5 @@ async def generate_meeting_brief(meeting_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app)
+    port = int(os.environ.get("PORT", 9000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
