@@ -38,6 +38,11 @@ except Exception:
     calendar_router = None
 
 try:
+    from routes.google_oauth import router as google_oauth_router
+except Exception:
+    google_oauth_router = None
+
+try:
     from routes.email import router as email_router
 except Exception:
     email_router = None
@@ -72,6 +77,10 @@ if email_router:
 # Include calendar routes if available
 if calendar_router:
     app.include_router(calendar_router)
+
+# Include Google OAuth routes if available
+if google_oauth_router:
+    app.include_router(google_oauth_router)
 
 # Data models
 class EmailMessage(BaseModel):
@@ -249,4 +258,4 @@ async def generate_meeting_brief(meeting_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=9000)
+    uvicorn.run(app)
