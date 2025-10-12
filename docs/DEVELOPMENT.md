@@ -74,6 +74,19 @@ The app will open at `http://localhost:3000`
 - `GET /api/prepare-day` - **Main MVP feature** - Prepare your day
 - `POST /api/meeting-brief` - Generate meeting brief
 
+### Email & Calendar (MVP)
+
+- `POST /email/parse` — Parse a raw RFC822 email (base64 or raw string)
+- `POST /email/imap/test` — Test IMAP connection and list recent messages
+- `POST /email/fetch-and-classify` — Fetch N recent emails and classify via AI when available
+- `GET /calendar/events` — Fetch upcoming events (mock)
+- `POST /calendar/meeting-brief` — Generate an AI brief for a given event
+
+Developer notes:
+- For IMAP with Gmail, enable 2FA and create an App Password; use `imap.gmail.com:993` (SSL).
+- OpenRouter AI is used when `OPENROUTER_API_KEY` is set; otherwise fallback heuristics are used.
+- Calendar is mocked for now; Google Calendar integration will require OAuth2 setup (client ID/secret and consent screen).
+
 ## Architecture
 
 Brody uses a multi-agent architecture:
